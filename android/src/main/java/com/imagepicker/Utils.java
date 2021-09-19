@@ -125,6 +125,17 @@ public class Utils {
         return toUri;
     }
 
+    private static String getActualFileName(ContentResolver resolver, Uri uri) {
+        Cursor returnCursor =
+                resolver.query(uri, null, null, null, null);
+        assert returnCursor != null;
+        int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        returnCursor.moveToFirst();
+        String name = returnCursor.getString(nameIndex);
+        returnCursor.close();
+        return name;
+    }
+
     public static boolean isCameraAvailable(Context reactContext) {
         return reactContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)
                 || reactContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
@@ -384,7 +395,13 @@ public class Utils {
         return fileUris;
     }
 
-    static ReadableMap getImageResponseMap(Uri uri, Options options, Context context) {
+    static ReadableMap getImageResponseMap(Uri oldUri, Uri uri, Options options, Context context) {
+        String realFileName = null;
+        if (oldUri.getScheme().contains("content")) {
+            ContentResolver contentResolver = context.getContentResolver();
+            realFileName = getActualFileName(contentResolver, oldUri);
+        }
+
         String fileName = uri.getLastPathSegment();
         int[] dimensions = getImageDimensions(uri, context);
 
@@ -395,6 +412,10 @@ public class Utils {
         map.putString("type", getMimeTypeFromFileUri(uri));
         map.putInt("width", dimensions[0]);
         map.putInt("height", dimensions[1]);
+        if (realFileName != null) {
+            map.putString("originalFileName", realFileName);    
+        }
+        
 
         if (options.includeBase64) {
             map.putString("base64", getBase64String(uri, context));
@@ -419,11 +440,12 @@ public class Utils {
             Uri uri = fileUris.get(i);
 
             if (isImageType(uri, context)) {
+                Uri oldUri = uri;
                 if (uri.getScheme().contains("content")) {
                     uri = getAppSpecificStorageUri(uri, context);
                 }
                 uri = resizeImage(uri, context, options);
-                assets.pushMap(getImageResponseMap(uri, options, context));
+                assets.pushMap(getImageResponseMap(oldUri, uri, options, context));
             } else if (isVideoType(uri, context)) {
                 assets.pushMap(getVideoResponseMap(uri, context));
             } else {

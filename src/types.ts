@@ -24,6 +24,7 @@ export interface Asset {
   height?: number;
   fileSize?: number;
   type?: string; //TODO
+  originalFileName?: string //Original file name in Android
   fileName?: string;
   duration?: number;
 }
